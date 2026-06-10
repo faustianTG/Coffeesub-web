@@ -17,7 +17,7 @@ const SECRET_KEY = process.env.NEXT_PUBLIC_QR_ENCRYPTION_KEY ?? 'REPLACE_WITH_YO
 // This is only used for EVP_BytesToKey key derivation (CryptoJS compat),
 // NOT for any security-sensitive hashing.
 
-function md5(input: Uint8Array): Uint8Array {
+function md5(input: Uint8Array<ArrayBuffer>): Uint8Array<ArrayBuffer> {
   // MD5 constants
   const S = [
     7,12,17,22,7,12,17,22,7,12,17,22,7,12,17,22,
@@ -83,7 +83,7 @@ function md5(input: Uint8Array): Uint8Array {
     d0 = (d0 + D) >>> 0
   }
 
-  const result = new Uint8Array(16)
+  const result = new Uint8Array(16) as Uint8Array<ArrayBuffer>
   const rv = new DataView(result.buffer)
   rv.setUint32(0, a0, true)
   rv.setUint32(4, b0, true)
@@ -97,16 +97,16 @@ function md5(input: Uint8Array): Uint8Array {
 // matching CryptoJS's internal key derivation exactly.
 
 function evpBytesToKey(
-  password: Uint8Array,
-  salt: Uint8Array,
+  password: Uint8Array<ArrayBuffer>,
+  salt: Uint8Array<ArrayBuffer>,
   keyLen: number,
   ivLen: number
-): { key: Uint8Array; iv: Uint8Array } {
+): { key: Uint8Array<ArrayBuffer>; iv: Uint8Array<ArrayBuffer> } {
   const result: number[] = []
-  let prev = new Uint8Array(0)
+  let prev: Uint8Array<ArrayBuffer> = new Uint8Array(0) as Uint8Array<ArrayBuffer>
 
   while (result.length < keyLen + ivLen) {
-    const input = new Uint8Array(prev.length + password.length + salt.length)
+    const input = new Uint8Array(prev.length + password.length + salt.length) as Uint8Array<ArrayBuffer>
     input.set(prev)
     input.set(password, prev.length)
     input.set(salt, prev.length + password.length)
@@ -115,8 +115,8 @@ function evpBytesToKey(
   }
 
   return {
-    key: new Uint8Array(result.slice(0, keyLen)),
-    iv: new Uint8Array(result.slice(keyLen, keyLen + ivLen)),
+    key: new Uint8Array(result.slice(0, keyLen)) as Uint8Array<ArrayBuffer>,
+    iv: new Uint8Array(result.slice(keyLen, keyLen + ivLen)) as Uint8Array<ArrayBuffer>,
   }
 }
 
@@ -128,8 +128,8 @@ function evpBytesToKey(
  */
 export async function encryptQRCode(plaintext: string): Promise<string> {
   const encoder = new TextEncoder()
-  const passwordBytes = encoder.encode(SECRET_KEY)
-  const salt = crypto.getRandomValues(new Uint8Array(8))
+  const passwordBytes = encoder.encode(SECRET_KEY) as Uint8Array<ArrayBuffer>
+  const salt = crypto.getRandomValues(new Uint8Array(8)) as Uint8Array<ArrayBuffer>
 
   const { key, iv } = evpBytesToKey(passwordBytes, salt, 32, 16)
 
@@ -162,15 +162,15 @@ export async function encryptQRCode(plaintext: string): Promise<string> {
  */
 export async function decryptQRCode(base64Ciphertext: string): Promise<string> {
   const encoder = new TextEncoder()
-  const passwordBytes = encoder.encode(SECRET_KEY)
+  const passwordBytes = encoder.encode(SECRET_KEY) as Uint8Array<ArrayBuffer>
 
-  const raw = Uint8Array.from(atob(base64Ciphertext), (c) => c.charCodeAt(0))
+  const raw = Uint8Array.from(atob(base64Ciphertext), (c) => c.charCodeAt(0)) as Uint8Array<ArrayBuffer>
 
   const header = String.fromCharCode(...raw.slice(0, 8))
   if (header !== 'Salted__') throw new Error('Invalid CryptoJS ciphertext format')
 
-  const salt = raw.slice(8, 16)
-  const ciphertext = raw.slice(16)
+  const salt = raw.slice(8, 16) as Uint8Array<ArrayBuffer>
+  const ciphertext = raw.slice(16) as Uint8Array<ArrayBuffer>
 
   const { key, iv } = evpBytesToKey(passwordBytes, salt, 32, 16)
 
